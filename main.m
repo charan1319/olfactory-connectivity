@@ -21,16 +21,17 @@ overall_data_folder     = 'data_folder';
 sub_data_folder         = 'raw_data';
 n                       = 500;     % length of filter for breathing
 s                       = 5750;    % length of filter for stimulus
-%trial_select            = '3CHO';   % scalar or vector of trial(s); or, odorant name
+trial_select            = '3CHO';   % scalar or vector of trial(s); or, odorant name
 % Trials just below are the full set of odorant/stimulus trials
 %trial_select            = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,40,41,42,43,44,45];
+%trial_select            = [3];
 lambda_breathing        = [0 (10.^(1:6))];       % lambda for breathing in optimization
 lambda_stimulus         = [(1e-10) (10.^(1:6))];       % lambda for stimulus in optimization
 dff_flag                = 1;       % Flag to indicate whether to do deltaF/F
 roi_solve_flag          = 0;
 roi_glo_filtering_flag  = 1;  % this will be calibrated for n/s longer, both for stim & non-stim
-roi_glo_zscore_flag     = 0;
-filter_stimulus_flag    = 0; % 1-gaussian, 2-triangular
+roi_glo_zscore_flag     = 1;
+filter_stimulus_flag    = 0; % 0-no filter, 1-gaussian, 2-triangular
 num_ROIs_to_use         = 20;
 stim_extend_flag        = 3; % 1-extend by 2sec, 2-shorten to just one sample (2ms),
                              % 3-same as 2, but moved to peak of breath
@@ -79,8 +80,8 @@ run_individual_fit = 0; % Flag on whether or not to learn filters for trials
 % Parameters for filtering
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Breathing
-fc = 10;
-fs = 500;
+fc = 10; %Hz
+fs = 500; %Hz
 
 %%%% ROIs/Glomeruli
 filter_select = 'Lowpass'; % 'Lowpass' or 'Bandpass', filtering for data (not breathing)
@@ -111,7 +112,7 @@ weight_threshold = 0.04; % Determines which weights to care about
 %% Load Data
 
 % Load trial stimulus information
-data_excel_doc = readtable('2017-10-27_GAD2-cre-tdTomato+AAV1.Syn.GCaMP6f.xlsx','Format','auto');
+data_excel_doc = readtable('2017-10-27_GAD2-cre-tdTomato+AAV1.Syn.GCaMP6f.xlsx','Format','auto', 'ReadVariableNames',false);
 data_excel_doc(:,[1 3:6 8:10]) = [];
 trial_stim_label = data_excel_doc(contains(data_excel_doc.Var2,'roi_1027_0'),:);
 [stim_label,~,stim_index] = unique(trial_stim_label.Var7);
@@ -178,7 +179,7 @@ end
 
 %% Show Stimuli for Selected Trials
 figure('NumberTitle', 'off', 'Name','Stim for Trials')
-    ylim([min(trial_select)-0.5 max(trial_select)+0.5])
+    %ylim([min(trial_select)-0.5 max(trial_select)+0.5])
     for tt=1:num_trials
         text(0.03,trial_select(tt),trial_stim_label.Var7{trial_select(tt)},...
              'FontSize',20)
@@ -258,7 +259,7 @@ for ii=1:num_trials
         hold off
         title(sprintf('Trial %i', ii))
         set(gca,'FontSize',16)
-        xlim([1800 2800])
+        xlim([8000 10000])
 
         % Set stimulus location to peak breathing
         stimulus{ii}(stim_nonzero_indices(1))=0; % remove old marker
@@ -740,7 +741,7 @@ for tt=1:num_trials
     end
 end
 
-%% Solve problem
+%% Get delta matrix for smoothness
 
 % quad-smoothness
 omega_breathing = sparse(toeplitz([2, -1, zeros(1, n-2)]));
@@ -764,7 +765,7 @@ else
              zeros(s,n)   (lambda_stimulus*omega_stimulus_square)];
 end
 
-
+%% Solve problem for individual trials
 if run_individual_fit % only run if flag set
 
     if (length(lambda_breathing)>1) || (length(lambda_stimulus)>1)
@@ -930,7 +931,7 @@ if run_individual_fit % only run if flag set
 end
 
 %% ALL TRIALS: Plot filters learned across all trials
-
+% Joe left off here 2-15-2023
 if roi_solve_flag
     % ROIS
     % Breathing
