@@ -931,7 +931,6 @@ if run_individual_fit % only run if flag set
 end
 
 %% ALL TRIALS: Plot filters learned across all trials
-% Joe left off here 2-15-2023
 if roi_solve_flag
     % ROIS
     % Breathing
