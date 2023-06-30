@@ -538,34 +538,6 @@ else
              zeros(s,n)   (lambda_stimulus*omega_stimulus_square)];
 end
 
-%% Solve problem for individual trials
-if run_individual_fit % only run if flag set
-
-    if (length(lambda_breathing)>1) || (length(lambda_stimulus)>1)
-        % I didn't implement GCV for individual fit yet, so if a range of
-        % parameters is given for lambdas then I will print an error
-        error('Need to add GCV support for individual fit')
-    end
-    for tt=1:num_trials
-
-        % Glomeruli
-        glo_quad_beta{tt}  = nan(size(fil_glo_data{tt},1),n);
-        glo_quad_alpha{tt} = nan(size(fil_glo_data{tt},1),s);
-        glo_filtered_breathing_quad{tt} = nan(size(fil_glo_data{tt},1),size(A{tt},1));
-        glo_filtered_stimulus_quad{tt}  = nan(size(fil_glo_data{tt},1),size(S{tt},1));
-
-        for ii=1:size(fil_glo_data{tt},1)   % Glomeruli
-            b{tt} = fil_glo_data{tt}(ii,b_starting_index:end);
-            x_quad{tt} = X_term*(b{tt}');
-            glo_quad_beta{tt}(ii,:)  = x_quad{tt}(1:n); % Breathing filter
-            glo_quad_alpha{tt}(ii,:) = x_quad{tt}((n+1):end); % Stimulus filter
-            glo_filtered_breathing_quad{tt}(ii,:) = A{tt}*(glo_quad_beta{tt}(ii,:)');
-            glo_filtered_stimulus_quad{tt}(ii,:)  = S{tt}*(glo_quad_alpha{tt}(ii,:)');
-        end
-
-    end
-end
-
 %% Solve problem for ALL data across selected trials
 A_all  = cell2mat(A');
 S_all  = cell2mat(S');
