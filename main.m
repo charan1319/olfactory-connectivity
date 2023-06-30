@@ -20,7 +20,7 @@ set(0,'DefaultFigureWindowStyle','docked')
 overall_data_folder     = 'data_folder';
 sub_data_folder         = 'raw_data';
 n                       = 500;     % length of filter for breathing
-s                       = 5750;    % length of filter for stimulus
+s                       = 4000;    % length of filter for stimulus
 trial_select            = '3CHO';   % scalar or vector of trial(s); or, odorant name
 % Trials just below are the full set of odorant/stimulus trials
 %trial_select            = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,40,41,42,43,44,45];
@@ -295,27 +295,10 @@ end
 
 %% DeltaF/F0
 % Initialize cells so shape is specified
-dff_roi_data = cell(num_trials,1);
 dff_glo_data = cell(num_trials,1);
 
 % Loop through trials
 for tt=1:num_trials
-    % ROIs
-    dff_roi_data{tt} = nan(size(raw_roi_data{tt}));
-    for ii=1:size(raw_roi_data{tt},1)
-        if dff_flag==1
-            if isempty(find(stimulus{tt}>0)) % No stimulus
-                dff_roi_data{tt}(ii,:) = (raw_roi_data{tt}(ii,:)/...
-                                        mean(raw_roi_data{tt}(ii,(num_timepoints_to_pad+1):end)))-1;
-            else % Stimulus
-                dff_roi_data{tt}(ii,:) = (raw_roi_data{tt}(ii,:)/...
-                    mean(raw_roi_data{tt}(ii,num_timepoints_to_pad+...
-                        (dff_stim_mean_start_t:dff_stim_mean_end_t))))-1;
-            end
-        else
-            dff_roi_data{tt}(ii,:) = raw_roi_data{tt}(ii,:);
-        end
-    end
     % Glomeruli
     dff_glo_data{tt} = nan(size(raw_glo_data{tt}));
     for ii=1:size(raw_glo_data{tt},1)
@@ -398,7 +381,7 @@ if (filter_stimulus_flag~=0)
     hold off
 end
 
-%% Band Pass Filter ROI & Glomeruli + Z-score
+%% Band Pass Filter Glomeruli + Z-score
 if strcmp(filter_select,'Bandpass')
     [b_bp, a_bp] = butter(4,[fl fh]/(fs/2));
 elseif strcmp(filter_select,'Lowpass')
@@ -406,25 +389,10 @@ elseif strcmp(filter_select,'Lowpass')
 end
 
 % Initialize variables
-fil_roi_data = cell(num_trials,1);
 fil_glo_data = cell(num_trials,1);
 
 % Loop through trials
 for tt=1:num_trials
-
-    % ROIs
-    fil_roi_data{tt} = nan(size(raw_roi_data{tt}));
-    for ii=1:size(raw_roi_data{tt},1)
-        if roi_glo_filtering_flag
-            fil_roi_data{tt}(ii,:) = ...
-                filtfilt(b_bp, a_bp, dff_roi_data{tt}(ii,:));
-        else
-            fil_roi_data{tt}(ii,:) = dff_roi_data{tt}(ii,:);
-        end
-    end
-    if roi_glo_zscore_flag
-        fil_roi_data{tt} = zscore(fil_roi_data{tt}')'; % zscore
-    end
 
     % GLOMERULI
     fil_glo_data{tt} = nan(size(raw_glo_data{tt}));
@@ -441,58 +409,12 @@ for tt=1:num_trials
     end
 end
 
-% Plot filter
-% Uncomment below to plot filter
-% bp_fv = fvtool(b_bp, a_bp);
-% set(bp_fv, 'MagnitudeDisplay', 'Magnitude squared')
-% bp_fv.Fs = fs;
-% set(gca,'FontSize',16)
-% xlim([0 50])
-% title('Filtering of ROIs/Glomeruli')
-% objects = findall(gca);
-% objects(2).LineWidth = 3;
 
-
-%% Check out correlations between ROIs/Glomeruli
+%% Check out correlations between Glomeruli
 
 if run_individual_fit % only run if flag set
 
-    c_limits_roi = cell(num_trials,1);
     c_limits_glo = cell(num_trials,1);
-
-    % RAW ROIs
-    for tt=1:num_trials
-
-        c_limits_roi{tt} = nan([3 2]);
-
-        RHO_raw_roi_data{tt} = corr(raw_roi_data{tt}');
-
-        corr_fig_hdl{tt} = figure('NumberTitle', 'off', 'Name',...
-                                  sprintf('Corr - Trial %i',trial_select(tt)));
-        subplot(3,2,1)
-        imagesc(RHO_raw_roi_data{tt})
-        title(sprintf('RHO for raw roi data: Trial %i',trial_select(tt)))
-        h_bar = colorbar;
-        ylabel(h_bar,'RHO')
-        set(gca, 'FontSize', 24)
-        xlabel('roi')
-        ylabel('roi')
-        if isempty(c_axis) % If c_axis unspecified/empty, normalize c_axis for trial
-            c_limits_roi{tt}(1,:) = caxis;
-            c_max = max(max(RHO_raw_roi_data{tt}-diag(diag(RHO_raw_roi_data{tt}))));
-            c_limits_roi{tt}(1,2) = c_max;
-        else % Use c_axis if given, e.g. c_axis = [-1 1]
-            caxis(c_axis)
-        end
-        if isempty(colorbar_m)
-            colormap(redblue())
-        else
-            colormap(redblue(colorbar_m))
-        end
-        axis image
-
-    end
-
 
     % RAW GLOMERULI
     for tt=1:num_trials
@@ -517,37 +439,6 @@ if run_individual_fit % only run if flag set
             c_max = max(max(RHO_raw_glo_data{tt}-diag(diag(RHO_raw_glo_data{tt}))));
             c_limits_glo{tt}(1,2) = c_max;
         else % Use c_axis if given, e.g. c_axis = [-1 1]
-            caxis(c_axis)
-        end
-        if isempty(colorbar_m)
-            colormap(redblue())
-        else
-            colormap(redblue(colorbar_m))
-        end
-        axis image
-    end
-
-    % FIL ROIs
-    for tt=1:num_trials
-
-        figure(corr_fig_hdl{tt})
-
-        RHO_fil_roi_data{tt} = corr(fil_roi_data{tt}');
-
-        %figure
-        subplot(3,2,3)
-        imagesc(RHO_fil_roi_data{tt})
-        title('RHO for filtered roi data')
-        h_bar = colorbar;
-        ylabel(h_bar,'RHO')
-        set(gca, 'FontSize', 24)
-        xlabel('roi')
-        ylabel('roi')
-        if isempty(c_axis)
-            c_limits_roi{tt}(2,:) = caxis;
-            c_max = max(max(RHO_fil_roi_data{tt}-diag(diag(RHO_fil_roi_data{tt}))));
-            c_limits_roi{tt}(2,2) = c_max;
-        else
             caxis(c_axis)
         end
         if isempty(colorbar_m)
@@ -591,37 +482,11 @@ if run_individual_fit % only run if flag set
 
 end
 
-%% ALL TRIALS TOGETHER: Plot correlations between ROIs/Glomeruli across trials
+%% ALL TRIALS TOGETHER: Plot correlations between Glomeruli across trials
 
 % Compute correlations
-RHO_all_raw_roi_data = corr(cell2mat(raw_roi_data')');
 RHO_all_raw_glo_data = corr(cell2mat(raw_glo_data')');
-RHO_all_fil_roi_data = corr(cell2mat(fil_roi_data')');
 RHO_all_fil_glo_data = corr(cell2mat(fil_glo_data')');
-
-% RAW ROIs: Plot correlations between all raw ROIs across all trials
-all_corr_fig_hdl = figure('NumberTitle', 'off', 'Name','All Corr: Br Adj');
-    subplot(3,2,1)
-    imagesc(RHO_all_raw_roi_data)
-    title('RHO for all raw roi data')
-    h_bar = colorbar;
-    ylabel(h_bar,'RHO')
-    set(gca, 'FontSize', 24)
-    xlabel('roi')
-    ylabel('roi')
-    if isempty(c_axis) % If c_axis unspecified/empty, normalize c_axis for trial
-        c_limits_roi_all_trial(1,:) = caxis;
-        c_max = max(max(RHO_all_raw_roi_data-diag(diag(RHO_all_raw_roi_data))));
-        c_limits_roi_all_trial(1,2) = c_max;
-    else % Use c_axis if given, e.g. c_axis = [-1 1]
-        caxis(c_axis)
-    end
-    if isempty(colorbar_m)
-        colormap(redblue())
-    else
-        colormap(redblue(colorbar_m))
-    end
-    axis image
 
 % RAW GLOMERULI:
 subplot(3,2,2)
@@ -636,29 +501,6 @@ subplot(3,2,2)
         c_limits_glo_all_trial(1,:) = caxis;
         c_max = max(max(RHO_all_raw_glo_data-diag(diag(RHO_all_raw_glo_data))));
         c_limits_glo_all_trial(1,2) = c_max;
-    else % Use c_axis if given, e.g. c_axis = [-1 1]
-        caxis(c_axis)
-    end
-    if isempty(colorbar_m)
-        colormap(redblue())
-    else
-        colormap(redblue(colorbar_m))
-    end
-    axis image
-
-% FIL ROIs:
-subplot(3,2,3)
-    imagesc(RHO_all_fil_roi_data)
-    title('RHO for all fil roi data')
-    h_bar = colorbar;
-    ylabel(h_bar,'RHO')
-    set(gca, 'FontSize', 24)
-    xlabel('roi')
-    ylabel('roi')
-    if isempty(c_axis) % If c_axis unspecified/empty, normalize c_axis for trial
-        c_limits_roi_all_trial(2,:) = caxis;
-        c_max = max(max(RHO_all_fil_roi_data-diag(diag(RHO_all_fil_roi_data))));
-        c_limits_roi_all_trial(2,2) = c_max;
     else % Use c_axis if given, e.g. c_axis = [-1 1]
         caxis(c_axis)
     end
@@ -775,24 +617,6 @@ if run_individual_fit % only run if flag set
     end
     for tt=1:num_trials
 
-        % ROIs
-        roi_quad_beta{tt}  = nan(size(fil_roi_data{tt},1),n);
-        roi_quad_alpha{tt} = nan(size(fil_roi_data{tt},1),s);
-        roi_filtered_breathing_quad{tt} = nan(size(fil_roi_data{tt},1),size(A{tt},1));
-        roi_filtered_stimulus_quad{tt}  = nan(size(fil_roi_data{tt},1),size(S{tt},1));
-
-        X = [A{tt} S{tt}]; % Number of samples X total filter length (B+S)
-        X_term = (((X')*X) + (m(tt)*delta))\(X');
-
-        for ii=1:size(fil_roi_data{tt},1)   % ROIs
-            b{tt} = fil_roi_data{tt}(ii,b_starting_index:end);
-            x_quad{tt} = X_term*(b{tt}');
-            roi_quad_beta{tt}(ii,:)  = x_quad{tt}(1:n); % Breathing filter
-            roi_quad_alpha{tt}(ii,:) = x_quad{tt}((n+1):end); % Stimulus filter
-            roi_filtered_breathing_quad{tt}(ii,:) = A{tt}*(roi_quad_beta{tt}(ii,:)');
-            roi_filtered_stimulus_quad{tt}(ii,:)  = S{tt}*(roi_quad_alpha{tt}(ii,:)');
-        end
-
         % Glomeruli
         glo_quad_beta{tt}  = nan(size(fil_glo_data{tt},1),n);
         glo_quad_alpha{tt} = nan(size(fil_glo_data{tt},1),s);
@@ -816,28 +640,6 @@ A_all  = cell2mat(A');
 S_all  = cell2mat(S');
 
 X      = [A_all S_all];
-
-% ROIs
-if roi_solve_flag
-    for ii=1:size(fil_roi_data{1},1)   % ROIs
-        for tt=1:num_trials
-            b_all_pre_cat{tt} = fil_roi_data{tt}(ii,b_starting_index:end);
-        end
-        b_all = cell2mat(b_all_pre_cat); % concatenate trials
-        %X_term = (((X')*X) + (sum(m)*delta))\(X');
-        [x_quad_all, roi_ii(ii), roi_jj(ii)] = gcv_solver( X, delta, b_all,...
-                                                      lambda_breathing,...
-                                                      lambda_stimulus);
-        %x_quad_all = X_term*(b_all');
-        roi_quad_beta_all(ii,:)  = x_quad_all(1:n); % Breathing filter
-        roi_quad_alpha_all(ii,:) = x_quad_all((n+1):end); % Stimulus filter
-        for tt=1:num_trials
-            % Filter
-            roi_filtered_breathing_quad_all{tt}(ii,:) = A{tt}*(roi_quad_beta_all(ii,:)');
-            roi_filtered_stimulus_quad_all{tt}(ii,:)  = S{tt}*(roi_quad_alpha_all(ii,:)');
-        end
-    end
-end
 
 % Glomeruli
 for ii=1:size(fil_glo_data{1},1)   % Glomeruli
@@ -865,37 +667,6 @@ save([odorant_name '_all_INTERMEDIATE.mat'])
 %% PLOT LEARNED FILTERS FOR TRIALS
 
 if run_individual_fit % only run if flag set
-    % ROIS
-    % Breathing
-    for tt=1:num_trials
-        figure('NumberTitle', 'off', 'Name',...
-                                  sprintf('ROI Filters - Trial %i',trial_select(tt)));
-        subplot(2,1,1)
-        plot(breathing_filter_time{tt}, zeros(size(roi_quad_beta{tt}(1,:))),'--')
-        for ii=1:size(roi_quad_beta{tt},1)
-            hold on
-            plot(breathing_filter_time{tt},flip(roi_quad_beta{tt}(ii,:)), 'LineWidth', 3)
-        end
-        hold off
-        xlim([min(breathing_filter_time{tt}) max(breathing_filter_time{tt})])
-        title('Breathing Filters for ROIs')
-        xlabel('Reverse time (sec)')
-        set(gca, 'FontSize', 16)
-
-        % Stimulus
-        subplot(2,1,2)
-        plot(stimulus_filter_time{tt}, zeros(size(roi_quad_alpha{tt}(1,:))),'--')
-        for ii=1:size(roi_quad_alpha{tt},1)
-            hold on
-            plot(stimulus_filter_time{tt},flip(roi_quad_alpha{tt}(ii,:)), 'LineWidth', 3)
-        end
-        hold off
-        xlim([min(stimulus_filter_time{tt}) max(stimulus_filter_time{tt})])
-        title('Stimulus Filters for ROIs')
-        xlabel('Reverse time (sec)')
-        set(gca, 'FontSize', 16)
-
-    end
 
     for tt=1:num_trials
         % GLOMERULI
@@ -931,36 +702,6 @@ if run_individual_fit % only run if flag set
 end
 
 %% ALL TRIALS: Plot filters learned across all trials
-if roi_solve_flag
-    % ROIS
-    % Breathing
-    figure('NumberTitle', 'off', 'Name','All ROI Filters');
-    subplot(2,1,1)
-    plot(breathing_filter_time{1}, zeros(size(breathing_filter_time{1})),'--')
-    for ii=1:size(roi_quad_beta_all,1) % Loop through ROIs
-        hold on
-        plot(breathing_filter_time{1},flip(roi_quad_beta_all(ii,:)), 'LineWidth', 3)
-    end
-    hold off
-    xlim([min(breathing_filter_time{1}) max(breathing_filter_time{1})])
-    title('Breathing Filters for ROIs')
-    xlabel('Reverse time (sec)')
-    set(gca, 'FontSize', 16)
-
-    % Stimulus
-    subplot(2,1,2)
-    plot(stimulus_filter_time{1}, zeros(size(stimulus_filter_time{1})),'--')
-    for ii=1:size(roi_quad_alpha_all,1) % Loop through ROIs
-        hold on
-        plot(stimulus_filter_time{1},flip(roi_quad_alpha_all(ii,:)), 'LineWidth', 3)
-    end
-    hold off
-    xlim([min(stimulus_filter_time{1}) max(stimulus_filter_time{1})])
-    title('Stimulus Filters for ROIs')
-    xlabel('Reverse time (sec)')
-    set(gca, 'FontSize', 16)
-end
-
 
 % Glomeruli
 % Breathing
@@ -1049,24 +790,10 @@ box off
 yticks(1:size(glo_quad_alpha_all,1))
 
 
-%% BREATHING & STIMULUS ADJUSTED ROIs/GLOMERULI
+%% BREATHING & STIMULUS ADJUSTED GLOMERULI
 
 if run_individual_fit % only run if flag set
     for tt=1:num_trials
-
-        % ROIs
-        roi_breathing_adjusted{tt} = nan(size(fil_roi_data{tt}(:,b_starting_index:end)));
-        roi_stimulus_adjusted{tt}  = nan(size(fil_roi_data{tt}(:,b_starting_index:end)));
-        roi_both_adjusted{tt}      = nan(size(fil_roi_data{tt}(:,b_starting_index:end)));
-        for ii=1:size(fil_roi_data{tt},1)   % ROIs
-            roi_breathing_adjusted{tt}(ii,:) = fil_roi_data{tt}(ii,b_starting_index:end) ...
-                                           - roi_filtered_breathing_quad{tt}(ii,:);
-            roi_stimulus_adjusted{tt}(ii,:)  = fil_roi_data{tt}(ii,b_starting_index:end) ...
-                                           - roi_filtered_stimulus_quad{tt}(ii,:);
-            roi_both_adjusted{tt}(ii,:)      = fil_roi_data{tt}(ii,b_starting_index:end) ...
-                                           - roi_filtered_stimulus_quad{tt}(ii,:)...
-                                           - roi_filtered_breathing_quad{tt}(ii,:);
-        end
 
         % Glomeruli
         glo_breathing_adjusted{tt} = nan(size(fil_glo_data{tt}(:,b_starting_index:end)));
@@ -1085,21 +812,8 @@ if run_individual_fit % only run if flag set
     end
 end
 
-%% ALL: BREATHING & STIMULUS ADJUSTED ROIs/GLOMERULI
+%% ALL: BREATHING & STIMULUS ADJUSTED GLOMERULI
 for tt=1:num_trials
-
-    if roi_solve_flag
-        % ROIs
-        for ii=1:size(fil_roi_data{tt},1)   % Loop through ROIs
-            roi_breathing_adjusted_all{tt}(ii,:) = fil_roi_data{tt}(ii,b_starting_index:end) ...
-                                           - roi_filtered_breathing_quad_all{tt}(ii,:);
-            roi_stimulus_adjusted_all{tt}(ii,:)  = fil_roi_data{tt}(ii,b_starting_index:end) ...
-                                           - roi_filtered_stimulus_quad_all{tt}(ii,:);
-            roi_both_adjusted_all{tt}(ii,:)      = fil_roi_data{tt}(ii,b_starting_index:end) ...
-                                           - roi_filtered_stimulus_quad_all{tt}(ii,:)...
-                                           - roi_filtered_breathing_quad_all{tt}(ii,:);
-        end
-    end
 
     % Glomeruli
     for ii=1:size(fil_glo_data{tt},1)  % Loop through glomeruli
@@ -1119,23 +833,6 @@ end
 %% COMPUTE FVU
 
 for tt=1:num_trials
-
-    if roi_solve_flag
-        % ROIs
-        % Total variance
-        var_roi_total{tt}         = var(fil_roi_data{tt}(:,b_starting_index:end),[],2);
-        if run_individual_fit % only run if flag set
-            % Variances
-            var_roi_breathing_adj{tt} = var(roi_breathing_adjusted{tt},[],2);
-            var_roi_stimulus_adj{tt}  = var(roi_stimulus_adjusted{tt},[],2);
-            var_roi_both_adj{tt}      = var(roi_both_adjusted{tt},[],2);
-
-            % FVUs
-            fvu_roi_breathing_adj{tt} = var_roi_breathing_adj{tt}./var_roi_total{tt};
-            fvu_roi_stimulus_adj{tt}  = var_roi_stimulus_adj{tt}./var_roi_total{tt};
-            fvu_roi_both_adj{tt}      = var_roi_both_adj{tt}./var_roi_total{tt};
-        end
-    end
 
     % Glomeruli
     % Total variance
@@ -1158,19 +855,6 @@ end
 %% ALL: COMPUTE FVU
 for tt=1:num_trials
 
-    if roi_solve_flag
-        % ROIs
-        % Variances
-        var_roi_breathing_adj_all{tt} = var(roi_breathing_adjusted_all{tt},[],2);
-        var_roi_stimulus_adj_all{tt}  = var(roi_stimulus_adjusted_all{tt},[],2);
-        var_roi_both_adj_all{tt}      = var(roi_both_adjusted_all{tt},[],2);
-
-        % FVUs
-        fvu_roi_breathing_adj_all{tt} = var_roi_breathing_adj_all{tt}./var_roi_total{tt};
-        fvu_roi_stimulus_adj_all{tt}  = var_roi_stimulus_adj_all{tt}./var_roi_total{tt};
-        fvu_roi_both_adj_all{tt}      = var_roi_both_adj_all{tt}./var_roi_total{tt};
-    end
-
     % Glomeruli
     % Variances
     var_glo_breathing_adj_all{tt} = var(glo_breathing_adjusted_all{tt},[],2);
@@ -1182,34 +866,6 @@ for tt=1:num_trials
     fvu_glo_stimulus_adj_all{tt}  = var_glo_stimulus_adj_all{tt}./var_glo_total{tt};
     fvu_glo_both_adj_all{tt}      = var_glo_both_adj_all{tt}./var_glo_total{tt};
 
-end
-
-
-%% Also compute across all trials to get a general FVU
-
-if roi_solve_flag
-    % ROIs
-    % Extract relevant fil_roi_data values
-    for tt=1:num_trials
-        fil_roi_data_b_start{tt} = fil_roi_data{tt}(:,b_starting_index:end);
-    end
-
-    % Concatenate trials
-    fil_roi_data_b_start_cat       = cell2mat(fil_roi_data_b_start);
-    roi_breathing_adjusted_all_cat = cell2mat(roi_breathing_adjusted_all);
-    roi_stimulus_adjusted_all_cat  = cell2mat(roi_stimulus_adjusted_all);
-    roi_both_adjusted_all_cat      = cell2mat(roi_both_adjusted_all);
-
-    % Variances
-    var_roi_total_all_gen         = var(fil_roi_data_b_start_cat,[],2);
-    var_roi_breathing_adj_all_gen = var(roi_breathing_adjusted_all_cat,[],2);
-    var_roi_stimulus_adj_all_gen  = var(roi_stimulus_adjusted_all_cat,[],2);
-    var_roi_both_adj_all_gen      = var(roi_both_adjusted_all_cat,[],2);
-
-    % FVUs
-    fvu_roi_breathing_adj_all_gen = var_roi_breathing_adj_all_gen./var_roi_total_all_gen;
-    fvu_roi_stimulus_adj_all_gen  = var_roi_stimulus_adj_all_gen./var_roi_total_all_gen;
-    fvu_roi_both_adj_all_gen      = var_roi_both_adj_all_gen./var_roi_total_all_gen;
 end
 
 
@@ -1250,19 +906,6 @@ if run_individual_fit % Only run if flag set
         figure('NumberTitle', 'off', 'Name', ...
                sprintf('FVU: Breathing - Trial %i',trial_select(tt)));
 
-        if roi_solve_flag
-            % ROIs
-            subplot(2,1,1)
-            bar(fvu_roi_breathing_adj{tt}, 'FaceColor', col_to_use)
-            title(sprintf('FVUs for Breathing-Adjusted ROIs - Trial %i',...
-                  trial_select(tt)))
-            xlabel('ROI')
-            ylabel('FVU')
-            set(gca,'FontSize', 16)
-            box off
-            xlim([0.5 size(fil_roi_data{tt},1)+0.5])
-        end
-
         % Glomeruli
         subplot(2,1,2)
         bar(fvu_glo_breathing_adj{tt}, 'FaceColor', col_to_use)
@@ -1291,19 +934,6 @@ for tt=1:num_trials
     figure('NumberTitle', 'off', 'Name', ...
            sprintf('All FVU: Breathing - Trial %i',trial_select(tt)));
 
-    if roi_solve_flag
-        % ROIs
-        subplot(2,1,1)
-        bar(fvu_roi_breathing_adj_all{tt}, 'FaceColor', col_to_use)
-        title(sprintf('FVUs for Breathing-Adjusted ROIs - Trial %i',...
-              trial_select(tt)))
-        xlabel('ROI')
-        ylabel('FVU')
-        set(gca,'FontSize', 16)
-        box off
-        xlim([0.5 size(fil_roi_data{tt},1)+0.5])
-    end
-
     % Glomeruli
     subplot(2,1,2)
     bar(fvu_glo_breathing_adj_all{tt}, 'FaceColor', col_to_use)
@@ -1326,18 +956,6 @@ col_to_use = color_order(1,:);
 % Create figure
 figure('NumberTitle', 'off', 'Name','All ACROSS FVU: Breathing');
 
-if roi_solve_flag
-    % ROIs
-    subplot(2,1,1)
-    bar(fvu_roi_breathing_adj_all_gen, 'FaceColor', col_to_use)
-    title('FVUs for Breathing-Adjusted ROIs (Across All Trials)')
-    xlabel('ROI')
-    ylabel('FVU')
-    set(gca,'FontSize', 16)
-    box off
-    xlim([0.5 size(fil_roi_data{1},1)+0.5])
-end
-
 % Glomeruli
 subplot(2,1,2)
 bar(fvu_glo_breathing_adj_all_gen, 'FaceColor', col_to_use)
@@ -1357,18 +975,6 @@ col_to_use = color_order(1,:);
 % Create figure
 figure('NumberTitle', 'off', 'Name','All ACROSS FVU: Stimulus');
 
-if roi_solve_flag
-    % ROIs
-    subplot(2,1,1)
-    bar(fvu_roi_stimulus_adj_all_gen, 'FaceColor', col_to_use)
-    title('FVUs for Stimulus-Adjusted ROIs (Across All Trials)')
-    xlabel('ROI')
-    ylabel('FVU')
-    set(gca,'FontSize', 16)
-    box off
-    xlim([0.5 size(fil_roi_data{1},1)+0.5])
-end
-
 % Glomeruli
 subplot(2,1,2)
 bar(fvu_glo_stimulus_adj_all_gen, 'FaceColor', col_to_use)
@@ -1382,65 +988,6 @@ xlim([0.5 size(fil_glo_data{1},1)+0.5])
 %% PLOT FIL, FIL BREATHING/STIMULUS/BOTH, & ADJUSTED
 
 line_width = 3;
-
-if plot_roi_flag==1
-    for tt=1:num_trials
-        % ROIs
-        % Breathing
-        for ii=1:size(fil_roi_data{tt},1)
-            figure('NumberTitle', 'off', 'Name', sprintf('Trial %i - R%i',...
-                   trial_select(tt),ii));
-            if ~contains(version, '2016')
-                h_sup = suptitle(sprintf('Trial %i - ROI %i',trial_select(tt),ii));
-            end
-
-            ax1 = subplot(3,1,1);
-            plot(time{tt}(b_starting_index:end), fil_roi_data{tt}(ii,b_starting_index:end),...
-                 'DisplayName', sprintf('Filtered ROI %i',ii), 'LineWidth', line_width)
-            hold on
-            plot(time{tt}(b_starting_index:end), roi_filtered_breathing_quad{tt}(ii,:),...
-                 'DisplayName', 'Filtered Breathing', 'LineWidth', line_width)
-            hold off
-            legend show
-            xlim(time_range_to_plot)
-            xlabel('Time (s)')
-            set(gca,'FontSize', 16)
-            grid on
-
-            ax2 = subplot(3,1,2);
-            plot(time{tt}(b_starting_index:end), fil_roi_data{tt}(ii,b_starting_index:end),...
-                 'DisplayName', sprintf('Filtered ROI %i',ii), 'LineWidth', line_width)
-            hold on
-            color_order = get(gca, 'ColorOrder');
-            col_to_use = color_order(3,:);
-            plot(time{tt}(b_starting_index:end), roi_breathing_adjusted{tt}(ii,:),...
-                 'DisplayName', sprintf('Adjusted ROI %i',ii),...
-                 'Color', col_to_use, 'LineWidth', line_width)
-            hold off
-            xlim(time_range_to_plot)
-            xlabel('Time (s)')
-            set(gca,'FontSize', 16)
-            legend show
-            title(sprintf('FVU: %0.2f', fvu_roi_breathing_adj{tt}(ii)))
-            grid on
-
-            ax3 = subplot(3,1,3);
-            color_order = get(gca, 'ColorOrder');
-            col_to_use = color_order(3,:);
-            plot(time{tt}(b_starting_index:end), roi_breathing_adjusted{tt}(ii,:),...
-                 'DisplayName', sprintf('Adjusted ROI %i',ii),...
-                 'Color', col_to_use, 'LineWidth', line_width)
-            xlim(time_range_to_plot)
-            xlabel('Time (s)')
-            set(gca,'FontSize', 16)
-            legend
-            title(sprintf('FVU: %0.2f', fvu_roi_breathing_adj{tt}(ii)))
-            grid on
-
-            linkaxes([ax1 ax2 ax3],'xy')
-        end
-    end
-end
 
 % Glomeruli
 % Breathing
@@ -1529,39 +1076,11 @@ end
 
 
 
-%% Check out correlations between ROIs/Glomeruli after breathing/stim removal
+%% Check out correlations between Glomeruli after breathing/stim removal
 
 if run_individual_fit % only run if flag set
     for tt=1:num_trials
         figure(corr_fig_hdl{tt})
-
-        % FIL ROIs with breathing adjusted
-        RHO_roi_breathing_adjusted{tt} = corr(roi_breathing_adjusted{tt}');
-
-        %figure
-        subplot(3,2,5)
-        imagesc(RHO_roi_breathing_adjusted{tt})
-        title('RHO for filtered roi data with breathing adjusted')
-        h_bar = colorbar;
-        ylabel(h_bar,'RHO')
-        set(gca, 'FontSize', 24)
-        xlabel('roi')
-        ylabel('roi')
-        if isempty(c_axis)
-            c_limits_roi{tt}(3,:) = caxis;
-            c_max = max(max(RHO_roi_breathing_adjusted{tt}-...
-                    diag(diag(RHO_roi_breathing_adjusted{tt}))));
-            c_limits_roi{tt}(3,2) = c_max;
-        else
-            caxis(c_axis)
-        end
-        if isempty(colorbar_m)
-            colormap(redblue())
-        else
-            colormap(redblue(colorbar_m))
-        end
-        axis image
-
 
         % FIL GLOMERULI with breathing adjusted
         RHO_glo_breathing_adjusted{tt} = corr(glo_breathing_adjusted{tt}');
@@ -1596,46 +1115,15 @@ if run_individual_fit % only run if flag set
             if rem(ii, 2) == 0 % even->glo
                 lim_to_use = max([max(c_limits_glo{tt}(:)) abs(min(c_limits_glo{tt}(:)))]);
                 caxis([-lim_to_use lim_to_use])
-            else % odd-> roi
-                lim_to_use = max([max(c_limits_roi{tt}(:)) abs(min(c_limits_roi{tt}(:)))]);
-                caxis([-lim_to_use lim_to_use])
             end
         end
     end
 end
 
 
-%% ALL: Check out correlations between ROIs/Glomeruli after breathing removal
+%% ALL: Check out correlations between Glomeruli after breathing removal
 
 figure(all_corr_fig_hdl)
-
-if roi_solve_flag
-    % FIL ROIs with breathing adjusted
-    RHO_all_roi_breathing_adjusted = corr(roi_breathing_adjusted_all_cat');
-
-    subplot(3,2,5)
-    imagesc(RHO_all_roi_breathing_adjusted)
-    title('RHO for all filtered roi data with breathing adjusted')
-    h_bar = colorbar;
-    ylabel(h_bar,'RHO')
-    set(gca, 'FontSize', 24)
-    xlabel('roi')
-    ylabel('roi')
-    if isempty(c_axis) % If c_axis unspecified/empty, normalize c_axis for trial
-        c_limits_roi_all_trial(3,:) = caxis;
-        c_max = max(max(RHO_all_roi_breathing_adjusted-...
-                diag(diag(RHO_all_roi_breathing_adjusted))));
-        c_limits_roi_all_trial(3,2) = c_max;
-    else % Use c_axis if given, e.g. c_axis = [-1 1]
-        caxis(c_axis)
-    end
-    if isempty(colorbar_m)
-        colormap(redblue())
-    else
-        colormap(redblue(colorbar_m))
-    end
-    axis image
-end
 
 % FIL Glomeruli with breathing adjusted
 RHO_all_glo_breathing_adjusted = corr(glo_breathing_adjusted_all_cat');
@@ -1669,25 +1157,18 @@ for ii =1:6
 
     else
         subplot(3,2,ii)
-        if rem(ii, 2) == 0 % even->glo
+        if rem(ii, 2) == 0 % even->glo, might need to fix later (plotting every other)
             if ignore_raw_for_c_normalization==1
                 c_limits_glo_all_trial(1,:) = 0;
             end
             lim_to_use = max([max(c_limits_glo_all_trial(:)) ...
                               abs(min(c_limits_glo_all_trial(:)))]);
             caxis([-lim_to_use lim_to_use])
-        else % odd-> roi
-            if ignore_raw_for_c_normalization==1
-                c_limits_roi_all_trial(1,:) = 0;
-            end
-            lim_to_use = max([max(c_limits_roi_all_trial(:)) ...
-                              abs(min(c_limits_roi_all_trial(:)))]);
-            caxis([-lim_to_use lim_to_use])
-        end
+        end 
     end
 end
 
-%% ALL: Check out correlations between ROIs/Glomeruli after breathing+stim
+%% ALL: Check out correlations between Glomeruli after breathing+stim
 %  removal
 figure(all_corr_fig_br_stim_hdl)
 
