@@ -75,6 +75,8 @@ end
 
 % Flags for individual model fitting
 run_individual_fit = 0; % Flag on whether or not to learn filters for trials
+%%%%% Delete any subsections of code that run if run_individual_fit is 1, because
+%%%%% we will keep it as zero
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 % Parameters for filtering
@@ -411,77 +413,6 @@ end
 
 
 %% Check out correlations between Glomeruli
-
-if run_individual_fit % only run if flag set
-
-    c_limits_glo = cell(num_trials,1);
-
-    % RAW GLOMERULI
-    for tt=1:num_trials
-
-        figure(corr_fig_hdl{tt})
-
-        c_limits_glo{tt} = nan([3 2]);
-
-        RHO_raw_glo_data{tt} = corr(raw_glo_data{tt}');
-
-        %figure
-        subplot(3,2,2)
-        imagesc(RHO_raw_glo_data{tt})
-        title(sprintf('RHO for raw glo data: Trial %i',trial_select(tt)))
-        h_bar = colorbar;
-        ylabel(h_bar,'RHO')
-        set(gca, 'FontSize', 24)
-        xlabel('glomerulus')
-        ylabel('glomerulus')
-        if isempty(c_axis) % If c_axis unspecified/empty, normalize c_axis for trial
-            c_limits_glo{tt}(1,:) = caxis;
-            c_max = max(max(RHO_raw_glo_data{tt}-diag(diag(RHO_raw_glo_data{tt}))));
-            c_limits_glo{tt}(1,2) = c_max;
-        else % Use c_axis if given, e.g. c_axis = [-1 1]
-            caxis(c_axis)
-        end
-        if isempty(colorbar_m)
-            colormap(redblue())
-        else
-            colormap(redblue(colorbar_m))
-        end
-        axis image
-    end
-
-    % FIL GLOMERULI
-    for tt=1:num_trials
-
-        figure(corr_fig_hdl{tt})
-
-        RHO_fil_glo_data{tt} = corr(fil_glo_data{tt}');
-
-        %figure
-        subplot(3,2,4)
-        imagesc(RHO_fil_glo_data{tt})
-        title('RHO for filtered glomeruli data')
-        h_bar = colorbar;
-        ylabel(h_bar,'RHO')
-        set(gca, 'FontSize', 24)
-        xlabel('glomerulus')
-        ylabel('glomerulus')
-        if isempty(c_axis)
-            c_limits_glo{tt}(2,:) = caxis;
-            c_max = max(max(RHO_fil_glo_data{tt}-diag(diag(RHO_fil_glo_data{tt}))));
-            c_limits_glo{tt}(2,2) = c_max;
-        else
-            caxis(c_axis)
-        end
-        if isempty(colorbar_m)
-            colormap(redblue())
-        else
-            colormap(redblue(colorbar_m))
-        end
-        axis image
-    end
-
-end
-
 %% ALL TRIALS TOGETHER: Plot correlations between Glomeruli across trials
 
 % Compute correlations
