@@ -28,7 +28,6 @@ trial_select            = '3CHO';   % scalar or vector of trial(s); or, odorant 
 lambda_breathing        = [0 (10.^(1:6))];       % lambda for breathing in optimization
 lambda_stimulus         = [(1e-10) (10.^(1:6))];       % lambda for stimulus in optimization
 dff_flag                = 1;       % Flag to indicate whether to do deltaF/F
-roi_solve_flag          = 0;
 roi_glo_filtering_flag  = 1;  % this will be calibrated for n/s longer, both for stim & non-stim
 roi_glo_zscore_flag     = 1;
 filter_stimulus_flag    = 0; % 0-no filter, 1-gaussian, 2-triangular
@@ -73,11 +72,6 @@ if filter_stimulus_flag~=0
 end
 
 
-% Flags for individual model fitting
-run_individual_fit = 0; % Flag on whether or not to learn filters for trials
-%%%%% Delete any subsections of code that run if run_individual_fit is 1, because
-%%%%% we will keep it as zero
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 % Parameters for filtering
 %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -103,7 +97,6 @@ time_range_to_plot       = [40 43]; % in seconds
 colorbar_m = [];
 %c_axis = [-1 1];
 c_axis = [];      % If c_axis unspecified/empty, normalize c_axis for trial
-plot_roi_flag = 0; % Plot roi traces
 plot_glo_flag = 0; % Plot glo traces
 ignore_raw_for_c_normalization = 1; % Set to 1 if not including raw in normalization of corr
 
@@ -567,43 +560,6 @@ end
 %% SAVE INTERMEDIATE FILE
 save([odorant_name '_all_INTERMEDIATE.mat'])
 
-%% PLOT LEARNED FILTERS FOR TRIALS
-
-if run_individual_fit % only run if flag set
-
-    for tt=1:num_trials
-        % GLOMERULI
-        % Breathing
-        figure('NumberTitle', 'off', 'Name',...
-                                  sprintf('GLO Filters - Trial %i',trial_select(tt)));
-        subplot(2,1,1)
-        plot(breathing_filter_time{tt}, zeros(size(glo_quad_beta{tt}(1,:))),'--')
-        for ii=1:size(glo_quad_beta{tt},1)
-            hold on
-            plot(breathing_filter_time{tt},flip(glo_quad_beta{tt}(ii,:)), 'LineWidth', 3)
-        end
-        hold off
-        xlim([min(breathing_filter_time{tt}) max(breathing_filter_time{tt})])
-        title('Breathing Filters for Glomeruli')
-        xlabel('Reverse time (sec)')
-        set(gca, 'FontSize', 16)
-
-        % Stimulus
-        subplot(2,1,2)
-        plot(stimulus_filter_time{tt}, zeros(size(glo_quad_alpha{tt}(1,:))),'--')
-        for ii=1:size(glo_quad_alpha{tt},1)
-            hold on
-            plot(stimulus_filter_time{tt},flip(glo_quad_alpha{tt}(ii,:)), 'LineWidth', 3)
-        end
-        hold off
-        xlim([min(stimulus_filter_time{tt}) max(stimulus_filter_time{tt})])
-        title('Stimulus Filters for Glomeruli')
-        xlabel('Reverse time (sec)')
-        set(gca, 'FontSize', 16)
-
-    end
-end
-
 %% ALL TRIALS: Plot filters learned across all trials
 
 % Glomeruli
@@ -692,29 +648,6 @@ ylabel('Glomerulus')
 box off
 yticks(1:size(glo_quad_alpha_all,1))
 
-
-%% BREATHING & STIMULUS ADJUSTED GLOMERULI
-
-if run_individual_fit % only run if flag set
-    for tt=1:num_trials
-
-        % Glomeruli
-        glo_breathing_adjusted{tt} = nan(size(fil_glo_data{tt}(:,b_starting_index:end)));
-        glo_stimulus_adjusted{tt}  = nan(size(fil_glo_data{tt}(:,b_starting_index:end)));
-        glo_both_adjusted{tt}      = nan(size(fil_glo_data{tt}(:,b_starting_index:end)));
-        for ii=1:size(fil_glo_data{tt},1)
-            glo_breathing_adjusted{tt}(ii,:) = fil_glo_data{tt}(ii,b_starting_index:end) ...
-                                           - glo_filtered_breathing_quad{tt}(ii,:);
-            glo_stimulus_adjusted{tt}(ii,:)  = fil_glo_data{tt}(ii,b_starting_index:end) ...
-                                           - glo_filtered_stimulus_quad{tt}(ii,:);
-            glo_both_adjusted{tt}(ii,:)      = fil_glo_data{tt}(ii,b_starting_index:end) ...
-                                           - glo_filtered_stimulus_quad{tt}(ii,:)...
-                                           - glo_filtered_breathing_quad{tt}(ii,:);
-        end
-
-    end
-end
-
 %% ALL: BREATHING & STIMULUS ADJUSTED GLOMERULI
 for tt=1:num_trials
 
@@ -736,22 +669,9 @@ end
 %% COMPUTE FVU
 
 for tt=1:num_trials
-
     % Glomeruli
     % Total variance
     var_glo_total{tt}         = var(fil_glo_data{tt}(:,b_starting_index:end),[],2);
-    if run_individual_fit % only run if flag set
-        % Variances
-        var_glo_breathing_adj{tt} = var(glo_breathing_adjusted{tt},[],2);
-        var_glo_stimulus_adj{tt}  = var(glo_stimulus_adjusted{tt},[],2);
-        var_glo_both_adj{tt}      = var(glo_both_adjusted{tt},[],2);
-
-        % FVUs
-        fvu_glo_breathing_adj{tt} = var_glo_breathing_adj{tt}./var_glo_total{tt};
-        fvu_glo_stimulus_adj{tt}  = var_glo_stimulus_adj{tt}./var_glo_total{tt};
-        fvu_glo_both_adj{tt}      = var_glo_both_adj{tt}./var_glo_total{tt};
-    end
-
 end
 
 
@@ -795,37 +715,7 @@ fvu_glo_breathing_adj_all_gen = var_glo_breathing_adj_all_gen./var_glo_total_all
 fvu_glo_stimulus_adj_all_gen  = var_glo_stimulus_adj_all_gen./var_glo_total_all_gen;
 fvu_glo_both_adj_all_gen      = var_glo_both_adj_all_gen./var_glo_total_all_gen;
 
-
-%% PLOT FVUs
-
-if run_individual_fit % Only run if flag set
-    % Colors
-    color_order = get(gca, 'ColorOrder');
-    col_to_use = color_order(1,:);
-
-    for tt=1:num_trials
-
-        % Create figure
-        figure('NumberTitle', 'off', 'Name', ...
-               sprintf('FVU: Breathing - Trial %i',trial_select(tt)));
-
-        % Glomeruli
-        subplot(2,1,2)
-        bar(fvu_glo_breathing_adj{tt}, 'FaceColor', col_to_use)
-        title(sprintf('FVUs for Breathing-Adjusted Glomeruli - Trial %i',...
-              trial_select(tt)))
-        xlabel('Glomerulus')
-        ylabel('FVU')
-        set(gca,'FontSize', 16)
-        box off
-        xlim([0.5 size(fil_glo_data{tt},1)+0.5])
-
-    end
-end
-
-
 %% ALL: PLOT FVUs
-
 
 % Colors
 color_order = get(gca, 'ColorOrder');
@@ -973,52 +863,6 @@ if plot_glo_flag==1
             %grid on
 
             linkaxes([ax1 ax2 ax3],'xy')
-        end
-    end
-end
-
-
-
-%% Check out correlations between Glomeruli after breathing/stim removal
-
-if run_individual_fit % only run if flag set
-    for tt=1:num_trials
-        figure(corr_fig_hdl{tt})
-
-        % FIL GLOMERULI with breathing adjusted
-        RHO_glo_breathing_adjusted{tt} = corr(glo_breathing_adjusted{tt}');
-
-        %figure
-        subplot(3,2,6)
-        imagesc(RHO_glo_breathing_adjusted{tt})
-        title('RHO for filtered glomeruli data with breathing adjusted')
-        h_bar = colorbar;
-        ylabel(h_bar,'RHO')
-        set(gca, 'FontSize', 24)
-        xlabel('glomerulus')
-        ylabel('glomerulus')
-        if isempty(c_axis)
-            c_limits_glo{tt}(3,:) = caxis;
-            c_max = max(max(RHO_glo_breathing_adjusted{tt}-...
-                    diag(diag(RHO_glo_breathing_adjusted{tt}))));
-            c_limits_glo{tt}(3,2) = c_max;
-        else
-            caxis(c_axis)
-        end
-        if isempty(colorbar_m)
-            colormap(redblue())
-        else
-            colormap(redblue(colorbar_m))
-        end
-        axis image
-
-        % Set caxis across all plots if caxis empty
-        for ii =1:6
-            subplot(3,2,ii)
-            if rem(ii, 2) == 0 % even->glo
-                lim_to_use = max([max(c_limits_glo{tt}(:)) abs(min(c_limits_glo{tt}(:)))]);
-                caxis([-lim_to_use lim_to_use])
-            end
         end
     end
 end
