@@ -1424,17 +1424,18 @@ for ii=1:2
     caxis([min(caxis_save(:)) max(caxis_save(:))])
 end
 
-%% FPCA
-% Smoothing parameter for FPCA -> can be vector
-alphavs = 400;
-[p,N] = size(glo_both_adjusted_all{1}); % p neurons, N time points
-Omegu = sparse(toeplitz([2, -1, zeros(1, p - 2)])); % neurons
-Omegv = sparse(toeplitz([2, -1, zeros(1, N - 2)])); % time
-Omegv = Omegv*Omegv; % Second order differences matrix
-
-[U,V,d,optaus,optavs,Xhat,bicu,bicv] = fpca_nested_bic(glo_both_adjusted_all{1},2,0,...
-                            alphavs,Omegu,Omegv,0,0,1000,5);
-
+% DON'T DELETE WHAT IS BELOW - COMMENTED OUT FOR NOW
+%%% FPCA
+%% Smoothing parameter for FPCA -> can be vector
+%alphavs = 400;
+%[p,N] = size(glo_both_adjusted_all{1}); % p neurons, N time points
+%Omegu = sparse(toeplitz([2, -1, zeros(1, p - 2)])); % neurons
+%Omegv = sparse(toeplitz([2, -1, zeros(1, N - 2)])); % time
+%Omegv = Omegv*Omegv; % Second order differences matrix
+%
+%[U,V,d,optaus,optavs,Xhat,bicu,bicv] = fpca_nested_bic(glo_both_adjusted_all{1},2,0,...
+%                            alphavs,Omegu,Omegv,0,0,1000,5);
+%
 
 %% Save & email
 save([odorant_name '_all_FINAL.mat'])
