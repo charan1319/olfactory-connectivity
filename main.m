@@ -458,32 +458,6 @@ subplot(3,2,4)
     end
     axis image
 
-%% Compare correlations between fil, br adj, stim adj, and br+stim adj
-%  across all trials using filter learned across all trials
-all_corr_fig_br_stim_hdl = figure('NumberTitle', 'off', 'Name','All Corr: Br+Stim Adj');
-    subplot(2,2,1)
-    imagesc(RHO_all_fil_glo_data)
-    title('Before Adjustment')
-    h_bar = colorbar;
-    ylabel(h_bar,'\rho')
-    set(gca, 'FontSize', 24)
-    xlabel('Glomerulus')
-    ylabel('Glomerulus')
-    if isempty(c_axis) % If c_axis unspecified/empty, normalize c_axis for trial
-        c_limits_glo_all_trial_br_stim(1,:) = caxis;
-        c_max = max(max(RHO_all_fil_glo_data-diag(diag(RHO_all_fil_glo_data))));
-        c_limits_glo_all_trial_br_stim(1,2) = c_max;
-    else % Use c_axis if given, e.g. c_axis = [-1 1]
-        caxis(c_axis)
-    end
-    if isempty(colorbar_m)
-        colormap(redblue())
-    else
-        colormap(redblue(colorbar_m))
-    end
-    axis image
-
-
 
 %% Data Parameters & Selection
 
@@ -869,7 +843,7 @@ end
 
 
 %% ALL: Check out correlations between Glomeruli after breathing removal
-
+all_corr_fig_hdl = figure('NumberTitle', 'off', 'Name','All Corr: Br Adj');
 figure(all_corr_fig_hdl)
 
 % FIL Glomeruli with breathing adjusted
@@ -916,11 +890,61 @@ for ii =1:6
 end
 
 %% ALL: Check out correlations between Glomeruli after breathing+stim
+%% %% NEW FIG. 6
+
+% fil_glo_data_b_start
+% glo_breathing_adjusted_all
+% glo_stimulus_adjusted_all
+% glo_both_adjusted_all
+
+fil_glo_data_b_start_WINDOWED = cell(1, 4);
+glo_breathing_adjusted_WINDOWED = cell(1, 4);
+glo_stimulus_adjusted_WINDOWED = cell(1, 4);
+glo_both_adjusted_WINDOWED = cell(1, 4);
+
+for tt=1:num_trials
+    [br_pk_LOC, br_pk_MAX] = max(stimulus{tt});
+    
+    fil_glo_data_b_start_WINDOWED{tt} = fil_glo_data_b_start{tt}(:, br_pk_LOC:br_pk_LOC+3999);
+    glo_breathing_adjusted_WINDOWED{tt} = glo_breathing_adjusted_all{tt}(:, br_pk_LOC:br_pk_LOC+3999);
+    glo_stimulus_adjusted_WINDOWED{tt} = glo_stimulus_adjusted_all{tt}(:, br_pk_LOC:br_pk_LOC+3999);
+    glo_both_adjusted_WINDOWED{tt} = glo_both_adjusted_all{tt}(:, br_pk_LOC:br_pk_LOC+3999);
+end
+
 %  removal
-figure(all_corr_fig_br_stim_hdl)
+all_corr_fig_br_stim_windowed = figure('NumberTitle', 'off', 'Name','Stimulus');
+figure(all_corr_fig_br_stim_windowed)
+
+glo_unadjusted_truncated = cell2mat(fil_glo_data_b_start);
+RHO_all_unadjusted_truncated = corr(glo_unadjusted_truncated');
+
+% Unadjusted and windowed
+subplot(2,2,1)
+imagesc(RHO_all_unadjusted_truncated)
+title('Before Adjustment')
+h_bar = colorbar;
+ylabel(h_bar,'\rho')
+set(gca, 'FontSize', 24)
+xlabel('Glomerulus')
+ylabel('Glomerulus')
+if isempty(c_axis) % If c_axis unspecified/empty, normalize c_axis for trial
+    c_limits_glo_all_trial_br_stim(1,:) = caxis;
+    c_max = max(max(RHO_all_fil_glo_data-diag(diag(RHO_all_fil_glo_data))));
+    c_limits_glo_all_trial_br_stim(1,2) = c_max;
+else % Use c_axis if given, e.g. c_axis = [-1 1]
+    caxis(c_axis)
+end
+if isempty(colorbar_m)
+    colormap(redblue())
+else
+    colormap(redblue(colorbar_m))
+end
+axis image
+
 
 % FIL Glomeruli with breathing adjusted
-RHO_all_glo_breathing_adjusted = corr(glo_breathing_adjusted_all_cat');
+glo_breathing_adjusted_truncated = cell2mat(glo_breathing_adjusted_WINDOWED);
+RHO_all_glo_breathing_adjusted = corr(glo_breathing_adjusted_truncated');
 
 subplot(2,2,2)
 imagesc(RHO_all_glo_breathing_adjusted)
@@ -948,7 +972,8 @@ axis image
 
 
 % FIL Glomeruli with stimulus adjusted
-RHO_all_glo_stimulus_adjusted = corr(glo_stimulus_adjusted_all_cat');
+glo_stimulus_adjusted_truncated = cell2mat(glo_stimulus_adjusted_WINDOWED);
+RHO_all_glo_stimulus_adjusted = corr(glo_stimulus_adjusted_truncated');
 
 subplot(2,2,3)
 imagesc(RHO_all_glo_stimulus_adjusted)
@@ -977,7 +1002,8 @@ axis image
 
 
 % FIL Glomeruli with breathing+stim adjusted
-RHO_all_glo_breathing_stimulus_adjusted = corr(glo_both_adjusted_all_cat');
+glo_both_adjusted_truncated = cell2mat(glo_both_adjusted_WINDOWED);
+RHO_all_glo_breathing_stimulus_adjusted = corr(glo_both_adjusted_truncated');
 
 subplot(2,2,4)
 imagesc(RHO_all_glo_breathing_stimulus_adjusted)
@@ -1012,6 +1038,7 @@ for ii =1:4
                       abs(min(c_limits_glo_all_trial_br_stim(:)))]);
     caxis([-lim_to_use lim_to_use])
 end
+
 
 %% PRODUCE CONCATENATED RAW & DFF WITH B START INDEXING
 for tt=1:num_trials
@@ -1280,6 +1307,8 @@ end
 %[U,V,d,optaus,optavs,Xhat,bicu,bicv] = fpca_nested_bic(glo_both_adjusted_all{1},2,0,...
 %                            alphavs,Omegu,Omegv,0,0,1000,5);
 %
+
+
 
 %% Save & email
 save([odorant_name '_all_FINAL.mat'])
