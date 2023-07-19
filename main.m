@@ -1,4 +1,5 @@
 %% Quadratic-regularized least-squares on real data
+tic % starts timer
 %% Initialize
 clear all
 close all
@@ -25,7 +26,7 @@ trial_select            = '3CHO';   % scalar or vector of trial(s); or, odorant 
 % Trials just below are the full set of odorant/stimulus trials
 %trial_select            = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,40,41,42,43,44,45];
 %trial_select            = [3];
-lambda_breathing        = [0 (10.^(1:6))];       % lambda for breathing in optimization
+lambda_breathing        = [1 (10.^(1:6))];       % lambda for breathing in optimization
 lambda_stimulus         = [(1e-10) (10.^(1:6))];       % lambda for stimulus in optimization
 dff_flag                = 1;       % Flag to indicate whether to do deltaF/F
 roi_glo_filtering_flag  = 1;  % this will be calibrated for n/s longer, both for stim & non-stim
@@ -458,32 +459,6 @@ subplot(3,2,4)
     end
     axis image
 
-%% Compare correlations between fil, br adj, stim adj, and br+stim adj
-%  across all trials using filter learned across all trials
-all_corr_fig_br_stim_hdl = figure('NumberTitle', 'off', 'Name','All Corr: Br+Stim Adj');
-    subplot(2,2,1)
-    imagesc(RHO_all_fil_glo_data)
-    title('Before Adjustment')
-    h_bar = colorbar;
-    ylabel(h_bar,'\rho')
-    set(gca, 'FontSize', 24)
-    xlabel('Glomerulus')
-    ylabel('Glomerulus')
-    if isempty(c_axis) % If c_axis unspecified/empty, normalize c_axis for trial
-        c_limits_glo_all_trial_br_stim(1,:) = caxis;
-        c_max = max(max(RHO_all_fil_glo_data-diag(diag(RHO_all_fil_glo_data))));
-        c_limits_glo_all_trial_br_stim(1,2) = c_max;
-    else % Use c_axis if given, e.g. c_axis = [-1 1]
-        caxis(c_axis)
-    end
-    if isempty(colorbar_m)
-        colormap(redblue())
-    else
-        colormap(redblue(colorbar_m))
-    end
-    axis image
-
-
 
 %% Data Parameters & Selection
 
@@ -558,6 +533,7 @@ for ii=1:size(fil_glo_data{1},1)   % Glomeruli
 end
 
 %% SAVE INTERMEDIATE FILE
+toc % prints time
 save([odorant_name '_all_INTERMEDIATE.mat'])
 
 %% ALL TRIALS: Plot filters learned across all trials
@@ -869,7 +845,7 @@ end
 
 
 %% ALL: Check out correlations between Glomeruli after breathing removal
-
+all_corr_fig_hdl = figure('NumberTitle', 'off', 'Name','All Corr: Br Adj');
 figure(all_corr_fig_hdl)
 
 % FIL Glomeruli with breathing adjusted
@@ -915,12 +891,62 @@ for ii =1:6
     end
 end
 
+
 %% ALL: Check out correlations between Glomeruli after breathing+stim
+% NEW FIG 6
+% fil_glo_data_b_start
+% glo_breathing_adjusted_all
+% glo_stimulus_adjusted_all
+% glo_both_adjusted_all
+
+fil_glo_data_b_start_WINDOWED = cell(1, 4);
+glo_breathing_adjusted_WINDOWED = cell(1, 4);
+glo_stimulus_adjusted_WINDOWED = cell(1, 4);
+glo_both_adjusted_WINDOWED = cell(1, 4);
+
+for tt=1:num_trials
+    [br_pk_LOC, br_pk_MAX] = max(stimulus{tt});
+    
+    fil_glo_data_b_start_WINDOWED{tt} = fil_glo_data_b_start{tt}(:, br_pk_LOC:br_pk_LOC+3999);
+    glo_breathing_adjusted_WINDOWED{tt} = glo_breathing_adjusted_all{tt}(:, br_pk_LOC:br_pk_LOC+3999);
+    glo_stimulus_adjusted_WINDOWED{tt} = glo_stimulus_adjusted_all{tt}(:, br_pk_LOC:br_pk_LOC+3999);
+    glo_both_adjusted_WINDOWED{tt} = glo_both_adjusted_all{tt}(:, br_pk_LOC:br_pk_LOC+3999);
+end
+
 %  removal
-figure(all_corr_fig_br_stim_hdl)
+all_corr_fig_br_stim_windowed = figure('NumberTitle', 'off', 'Name','CorrelationGrids');
+figure(all_corr_fig_br_stim_windowed)
+
+glo_unadjusted_truncated = cell2mat(fil_glo_data_b_start);
+RHO_all_unadjusted_truncated = corr(glo_unadjusted_truncated');
+
+% Unadjusted and windowed
+subplot(2,2,1)
+imagesc(RHO_all_unadjusted_truncated)
+title('Before Adjustment')
+h_bar = colorbar;
+ylabel(h_bar,'\rho')
+set(gca, 'FontSize', 24)
+xlabel('Glomerulus')
+ylabel('Glomerulus')
+if isempty(c_axis) % If c_axis unspecified/empty, normalize c_axis for trial
+    c_limits_glo_all_trial_br_stim(1,:) = caxis;
+    c_max = max(max(RHO_all_fil_glo_data-diag(diag(RHO_all_fil_glo_data))));
+    c_limits_glo_all_trial_br_stim(1,2) = c_max;
+else % Use c_axis if given, e.g. c_axis = [-1 1]
+    caxis(c_axis)
+end
+if isempty(colorbar_m)
+    colormap(redblue())
+else
+    colormap(redblue(colorbar_m))
+end
+axis image
+
 
 % FIL Glomeruli with breathing adjusted
-RHO_all_glo_breathing_adjusted = corr(glo_breathing_adjusted_all_cat');
+glo_breathing_adjusted_truncated = cell2mat(glo_breathing_adjusted_WINDOWED);
+RHO_all_glo_breathing_adjusted = corr(glo_breathing_adjusted_truncated');
 
 subplot(2,2,2)
 imagesc(RHO_all_glo_breathing_adjusted)
@@ -948,7 +974,8 @@ axis image
 
 
 % FIL Glomeruli with stimulus adjusted
-RHO_all_glo_stimulus_adjusted = corr(glo_stimulus_adjusted_all_cat');
+glo_stimulus_adjusted_truncated = cell2mat(glo_stimulus_adjusted_WINDOWED);
+RHO_all_glo_stimulus_adjusted = corr(glo_stimulus_adjusted_truncated');
 
 subplot(2,2,3)
 imagesc(RHO_all_glo_stimulus_adjusted)
@@ -977,7 +1004,8 @@ axis image
 
 
 % FIL Glomeruli with breathing+stim adjusted
-RHO_all_glo_breathing_stimulus_adjusted = corr(glo_both_adjusted_all_cat');
+glo_both_adjusted_truncated = cell2mat(glo_both_adjusted_WINDOWED);
+RHO_all_glo_breathing_stimulus_adjusted = corr(glo_both_adjusted_truncated');
 
 subplot(2,2,4)
 imagesc(RHO_all_glo_breathing_stimulus_adjusted)
@@ -1012,6 +1040,130 @@ for ii =1:4
                       abs(min(c_limits_glo_all_trial_br_stim(:)))]);
     caxis([-lim_to_use lim_to_use])
 end
+%% PARTIAL CORRELATION PLOTS
+
+%  removal
+all_pcorr_fig_br_stim_windowed = figure('NumberTitle', 'off', 'Name','PartialCorrelationGrids');
+figure(all_pcorr_fig_br_stim_windowed)
+
+pcorr_all_unadjusted_truncated = partialcorr(glo_unadjusted_truncated');
+
+% Unadjusted and windowed
+subplot(2,2,1)
+imagesc(pcorr_all_unadjusted_truncated)
+title('Before Adjustment')
+h_bar = colorbar;
+ylabel(h_bar,'\rho')
+set(gca, 'FontSize', 24)
+xlabel('Glomerulus')
+ylabel('Glomerulus')
+if isempty(c_axis) % If c_axis unspecified/empty, normalize c_axis for trial
+    c_limits_glo_all_trial_br_stim(1,:) = caxis;
+    c_max = max(max(pcorr_all_unadjusted_truncated-diag(diag(pcorr_all_unadjusted_truncated))));
+    c_limits_glo_all_trial_br_stim(1,2) = c_max;
+else % Use c_axis if given, e.g. c_axis = [-1 1]
+    caxis(c_axis)
+end
+if isempty(colorbar_m)
+    colormap(redblue())
+else
+    colormap(redblue(colorbar_m))
+end
+axis image
+
+
+% FIL Glomeruli with breathing adjusted
+pcorr_all_glo_breathing_adjusted = partialcorr(glo_breathing_adjusted_truncated');
+
+subplot(2,2,2)
+imagesc(pcorr_all_glo_breathing_adjusted)
+title('Adjusted for Breathing')
+h_bar = colorbar;
+ylabel(h_bar,'\rho')
+set(gca, 'FontSize', 24)
+xlabel('Glomerulus')
+ylabel('Glomerulus')
+if isempty(c_axis) % If c_axis unspecified/empty, normalize c_axis for trial
+    c_limits_glo_all_trial_br_stim(2,:) = caxis;
+    c_max = max(max(pcorr_all_glo_breathing_adjusted-...
+            diag(diag(pcorr_all_glo_breathing_adjusted))));
+    c_limits_glo_all_trial_br_stim(2,2) = c_max;
+else % Use c_axis if given, e.g. c_axis = [-1 1]
+    caxis(c_axis)
+end
+if isempty(colorbar_m)
+    colormap(redblue())
+else
+    colormap(redblue(colorbar_m))
+end
+axis image
+
+
+
+% FIL Glomeruli with stimulus adjusted
+pcorr_all_glo_stimulus_adjusted = partialcorr(glo_stimulus_adjusted_truncated');
+
+subplot(2,2,3)
+imagesc(pcorr_all_glo_stimulus_adjusted)
+title('Adjusted for Stimulus')
+h_bar = colorbar;
+ylabel(h_bar,'\rho')
+set(gca, 'FontSize', 24)
+xlabel('Glomerulus')
+ylabel('Glomerulus')
+if isempty(c_axis) % If c_axis unspecified/empty, normalize c_axis for trial
+    c_limits_glo_all_trial_br_stim(3,:) = caxis;
+    c_max = max(max(pcorr_all_glo_stimulus_adjusted-...
+            diag(diag(pcorr_all_glo_stimulus_adjusted))));
+    c_limits_glo_all_trial_br_stim(3,2) = c_max;
+else % Use c_axis if given, e.g. c_axis = [-1 1]
+    caxis(c_axis)
+end
+if isempty(colorbar_m)
+    colormap(redblue())
+else
+    colormap(redblue(colorbar_m))
+end
+axis image
+
+
+% FIL Glomeruli with breathing+stim adjusted
+pcorr_all_glo_breathing_stimulus_adjusted = partialcorr(glo_both_adjusted_truncated');
+
+subplot(2,2,4)
+imagesc(pcorr_all_glo_breathing_stimulus_adjusted)
+title('Adjusted for Br + Stim')
+h_bar = colorbar;
+ylabel(h_bar,'\rho')
+set(gca, 'FontSize', 24)
+xlabel('Glomerulus')
+ylabel('Glomerulus')
+if isempty(c_axis) % If c_axis unspecified/empty, normalize c_axis for trial
+    c_limits_glo_all_trial_br_stim(4,:) = caxis;
+    c_max = max(max(pcorr_all_glo_breathing_stimulus_adjusted-...
+            diag(diag(pcorr_all_glo_breathing_stimulus_adjusted))));
+    c_limits_glo_all_trial_br_stim(4,2) = c_max;
+else % Use c_axis if given, e.g. c_axis = [-1 1]
+    caxis(c_axis)
+end
+if isempty(colorbar_m)
+    colormap(redblue())
+else
+    colormap(redblue(colorbar_m))
+end
+axis image
+
+
+
+
+% Set caxis across all plots if caxis empty
+for ii =1:4
+    subplot(2,2,ii)
+    lim_to_use = max([max(c_limits_glo_all_trial_br_stim(:)) ...
+                      abs(min(c_limits_glo_all_trial_br_stim(:)))]);
+    caxis([-lim_to_use lim_to_use])
+end
+
 
 %% PRODUCE CONCATENATED RAW & DFF WITH B START INDEXING
 for tt=1:num_trials
@@ -1025,71 +1177,27 @@ dff_glo_data_cat = cell2mat(dff_glo_data_b_start);
 glo_filtered_stimulus_quad_all_b_start_cat = cell2mat(glo_filtered_stimulus_quad_all);
 
 %% SHOW GLOMERULAR TIME SERIES
-h(1) = figure('NumberTitle', 'off', 'Name', 'Raw');
-plot(time_generic(1:length(raw_glo_data_cat)),raw_glo_data_cat')
-title('Raw')
+% !!! HERE
+
+h(1) = figure('NumberTitle', 'off', 'Name', 'DFF');
+plot(time_generic(1:length(glo_unadjusted_truncated)),glo_unadjusted_truncated')
+title('DFF')
 set(gca,'FontSize',20)
 ylim_save(1,:) = ylim;
 xlabel('Time (s)')
 box off
-xlim([time_generic(1) time_generic(length(raw_glo_data_cat))])
+xlim([time_generic(1) time_generic(length(glo_unadjusted_truncated))])
 
-h(2) = figure('NumberTitle', 'off', 'Name', 'DFF');
-plot(time_generic(1:length(raw_glo_data_cat)),dff_glo_data_cat')
-title('DFF')
+h(2) = figure('NumberTitle', 'off', 'Name', 'Both Adjusted');
+plot(time_generic(1:length(glo_both_adjusted_truncated)),glo_both_adjusted_truncated')
+title('Both Adjusted')
 set(gca,'FontSize',20)
 ylim_save(2,:) = ylim;
 xlabel('Time (s)')
 box off
-xlim([time_generic(1) time_generic(length(raw_glo_data_cat))])
+xlim([time_generic(1) time_generic(length(glo_both_adjusted_truncated))])
 
-h(3) = figure('NumberTitle', 'off', 'Name', 'Breathing Adjusted');
-plot(time_generic(1:length(raw_glo_data_cat)),glo_breathing_adjusted_all_cat')
-title('Breathing Adjusted')
-set(gca,'FontSize',20)
-ylim_save(3,:) = ylim;
-xlabel('Time (s)')
-box off
-xlim([time_generic(1) time_generic(length(raw_glo_data_cat))])
-
-h(4) = figure('NumberTitle', 'off', 'Name', 'Stimulus Adjusted');
-plot(time_generic(1:length(raw_glo_data_cat)),glo_stimulus_adjusted_all_cat')
-title('Stimulus Adjusted')
-set(gca,'FontSize',20)
-ylim_save(4,:) = ylim;
-xlabel('Time (s)')
-box off
-xlim([time_generic(1) time_generic(length(raw_glo_data_cat))])
-
-h(5) = figure('NumberTitle', 'off', 'Name', 'Both Adjusted');
-plot(time_generic(1:length(raw_glo_data_cat)),glo_both_adjusted_all_cat')
-title('Both Adjusted')
-set(gca,'FontSize',20)
-ylim_save(5,:) = ylim;
-xlabel('Time (s)')
-box off
-xlim([time_generic(1) time_generic(length(raw_glo_data_cat))])
-
-h(6) = figure('NumberTitle', 'off', 'Name', 'Convolved Stim');
-plot(time_generic(1:length(raw_glo_data_cat)),...
-        glo_filtered_stimulus_quad_all_b_start_cat', 'LineWidth',3)
-title('Convolved Stimulus')
-set(gca,'FontSize',20)
-ylim_save(6,:) = ylim;
-xlabel('Time (s)')
-box off
-xlim([time_generic(1) time_generic(length(raw_glo_data_cat))])
-
-h(7) = figure('NumberTitle', 'off', 'Name', 'FIL');
-plot(time_generic(1:length(raw_glo_data_cat)),fil_glo_data_b_start_cat')
-title('Filtered Glomeruli')
-set(gca,'FontSize',20)
-ylim_save(7,:) = ylim;
-xlabel('Time (s)')
-box off
-xlim([time_generic(1) time_generic(length(raw_glo_data_cat))])
-
-for ii=1:7
+for ii=1:2
     figure(h(ii))
     ylim([min(ylim_save(:)) max(ylim_save(:))])
 end
@@ -1280,6 +1388,8 @@ end
 %[U,V,d,optaus,optavs,Xhat,bicu,bicv] = fpca_nested_bic(glo_both_adjusted_all{1},2,0,...
 %                            alphavs,Omegu,Omegv,0,0,1000,5);
 %
+
+
 
 %% Save & email
 save([odorant_name '_all_FINAL.mat'])
